@@ -273,43 +273,31 @@ success_mod1<-glmmTMB(cbind(HATCHED, EGGS_UNBURIED-HATCHED) ~
                       data = ANI, 
                       family=binomial(link="logit"))
 
-Span_mod<-glmmTMB(SPAN ~ EGGS_UNBURIED+FEM+as.factor(NEST_ATTMPT)+(1|YEAR.x),
+Span_mod2<-glmmTMB(SPAN ~ EGGS_UNBURIED+FEM+as.factor(NEST_ATTMPT)+(1|YEAR.x),
                   data = skew_new, 
                   family = poisson(link="log"))
 
-success_mod2<-glmmTMB(cbind(HATCHED.x, EGGS_UNBURIED-HATCHED.x) ~ 
+success_mod3<-glmmTMB(cbind(HATCHED.x, EGGS_UNBURIED-HATCHED.x) ~ 
                         EGGS_UNBURIED+SPAN+ADULTS.x+as.factor(NEST_ATTMPT)+COMP+(1|YEAR.x),
                       data = skew_new, 
                       family=binomial(link="logit"))
 
-success_mod3<-glmmTMB(cbind(FLEDGED.x, HATCHED.x-FLEDGED.x) ~ 
-                        SPAN+ADULTS.x+as.factor(NEST_ATTMPT)+COMP+(1|YEAR.x),
+success_mod4<-glmmTMB(cbind(FLEDGED.x, HATCHED.x-FLEDGED.x) ~ 
+                        EGGS_UNBURIED+SPAN+ADULTS.x+as.factor(NEST_ATTMPT)+COMP+(1|YEAR.x),
                       data = skew_new, 
                       family=binomial(link="logit"))
 
 check_model(success_mod1)
-check_model(success_mod2)
 check_model(success_mod3)
-check_model(Span_mod)
+check_model(success_mod4)
+check_model(Span_mod2)
 
 summary(success_mod1)
-summary(success_mod2)
 summary(success_mod3)
-summary(Span_mod)
+summary(success_mod4)
+summary(Span_mod2)
 
-??is.singular
 #Visualization----
-plot(ggpredict(competition_mod, 
-               terms ="COMP"))+
-  geom_jitter(data=ANI, aes(COMP, EGGS_UNBURIED), 
-              color="black",
-              fill="black",
-              stroke=0,
-              width=0.15, 
-              height=0.02, 
-              pch=21, 
-              size=3)
-
 plot(ggpredict(success_mod1, 
                terms ="EGGS_UNBURIED"))+
   geom_jitter(data=ANI, aes(EGGS_UNBURIED, (FLEDGED/HATCHED)), 
@@ -337,7 +325,7 @@ plot(ggpredict(success_mod1,
 
 plot(ggpredict(success_mod2, 
                terms ="EGGS_UNBURIED"))+
-  geom_jitter(data=subset(ANI, NEST.FATE!="DP"), aes(EGGS_UNBURIED, HpEg), 
+  geom_jitter(data=skew_new, aes(EGGS_UNBURIED, HpEg), 
               color="black",
               fill="black",
               stroke=0,
@@ -362,7 +350,7 @@ plot(ggpredict(success_mod2,
 
 plot(ggpredict(success_mod3, 
                terms ="EGGS_UNBURIED"))+
-  geom_jitter(data=skew_new, aes(EGGS_UNBURIED, (FLEDGED.x/HATCHED.x)), 
+  geom_jitter(data=skew_new, aes(EGGS_UNBURIED, FpHa.x), 
               color="black",
               fill="black",
               stroke=0,
