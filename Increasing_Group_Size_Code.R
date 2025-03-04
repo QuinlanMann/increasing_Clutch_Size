@@ -39,24 +39,6 @@ ANI<-ANI %>% #removes the unknown groups
   group_by(SITE) %>%
   filter(n() > 12)
 
-ANI2<-ANI%>%
-  group_by(YEAR, LOCATION, SITE, ADULTS)%>%
-  summarize(TOT_EGGS=sum(TOT_EGGS, na.rm=T), 
-            EGGS_BURIED=sum(EGGS_BURIED, na.rm=T), 
-            EGGS_UNBURIED=sum(EGGS_UNBURIED, na.rm=T), 
-            HATCHED=sum(HATCHED, na.rm=T), 
-            FLEDGED=sum(FLEDGED, na.rm=T), 
-            NESTS=length(NEST_ATTMPT))
-
-#if the number of 
-ANI2<-ANI2 %>% mutate(FLEDGED = ifelse(FLEDGED == 0 && HATCHED == 0, NA, FLEDGED),
-                      HATCHED = ifelse(HATCHED == 0 && EGGS_UNBURIED == 0, NA, HATCHED), 
-                      EGGS_UNBURIED = ifelse(EGGS_UNBURIED == 0 && TOT_EGGS == 0, NA, EGGS_UNBURIED), 
-                      TOT_EGGS = ifelse(TOT_EGGS == 0, NA, TOT_EGGS))
-
-ANI$FEM<-floor(ANI$ADULTS/2)
-ANI2$FEM<-floor(ANI2$ADULTS/2)
-
 #settign the theme for ggplots
 theme_set(ggthemes::theme_few())
 
@@ -273,32 +255,45 @@ SKEW_DATA<-SKEW_DATA%>%distinct(GRP, .keep_all=T)
 SKEW_DATA$FpHa<-SKEW_DATA$FLEDGED/SKEW_DATA$HATCHED
 SKEW_DATA$FEM<-floor(SKEW_DATA$ADULTS/2)
 
+ANI$GRP<-paste(ANI$YEAR, ANI$LOCATION)
+SKEW_1<-merge(SKEW_DATA, ANI, by="GRP")
+
+SKEW_1$true_false<-ifelse(SKEW_1$HATCHED.x==SKEW_1$HATCHED.y, "true", "false")
+skew_new<-subset(SKEW_1, true_false=="true")
 
 #Models----
 
-success_mod1<-glmmTMB(cbind(FLEDGED, HATCHED-FLEDGED) ~ EGGS_UNBURIED+ADULTS+as.factor(NEST_ATTMPT)+I(TOT_EGGS/floor(ADULTS/2))+SITE+(1|SITE:LOCATION)+(1|YEAR),
+success_mod1<-glmmTMB(cbind(FLEDGED, HATCHED-FLEDGED) ~ 
+                        EGGS_UNBURIED+ADULTS+as.factor(NEST_ATTMPT)+I((TOT_EGGS-EGGS_UNBURIED)/floor(ADULTS/2))+SITE+(1|SITE:LOCATION)+(1|YEAR),
                       data = ANI, 
                       family=binomial(link="logit"))
 
-success_mod2<-glmmTMB(cbind(HATCHED, EGGS_UNBURIED-HATCHED) ~ EGGS_UNBURIED+ADULTS+as.factor(NEST_ATTMPT)+I(TOT_EGGS/floor(ADULTS/2))+SITE+(1|SITE:LOCATION)+(1|YEAR),
+success_mod2<-glmmTMB(cbind(HATCHED, EGGS_UNBURIED-HATCHED) ~ 
+                        EGGS_UNBURIED+ADULTS+as.factor(NEST_ATTMPT)+I((TOT_EGGS-EGGS_UNBURIED)/floor(ADULTS/2))+SITE+(1|SITE:LOCATION)+(1|YEAR),
                       data = ANI, 
                       family=binomial(link="logit"))
 
-success_mod3<-glmmTMB(cbind(FLEDGED, HATCHED-FLEDGED) ~ SPAN*SKEW+FEM+HATCHED+FEM:HATCHED+(1|LOCATION)+(1|YEAR), 
-                      data=SKEW_DATA, 
+success_mod3<-glmmTMB(cbind(FLEDGED.x, HATCHED.x-FLEDGED.x) ~ EGGS_UNBURIED+SPAN*SKEW+FEM+HATCHED.x+FEM:HATCHED.x+(1|LOCATION.x)+(1|YEAR.x), 
+                      data=skew_new, 
                       family = binomial(link = "logit"))
-Span_mod<-glmmTMB(SPAN ~ EGGS_UNBURIED+ADULTS+as.factor(NEST_ATTMPT)+SITE+(1|SITE:LOCATION)+(1|YEAR),
-                  data = SKEW_DATA, 
-                  family=poisson(link="log"))
-Skew_mod<-glmmTMB(SKEW ~ EGGS_UNBURIED+ADULTS+as.factor(NEST_ATTMPT)+SITE+(1|SITE:LOCATION)+(1|YEAR),
-                  data = SKEW_DATA, 
-                  family=poisson(link="log"))
+Span_mod<-glmmTMB(SPAN ~ EGGS_UNBURIED+FEM+as.factor(NEST_ATTMPT)+SITE.x+(1|SITE.x:LOCATION.x)+(1|YEAR.x),
+                  data = skew_new, 
+                  family = poisson(link="log"))
+Skew_mod<-glmmTMB(SKEW ~ EGGS_UNBURIED+FEM+as.factor(NEST_ATTMPT)+SITE.x+(1|SITE.x:LOCATION.x)+(1|YEAR.x),
+                  data = skew_new)
 
 check_model(success_mod1)
 check_model(success_mod2)
+check_model(success_mod3)
+check_model(Span_mod)
+check_model(Skew_mod)
 
 summary(success_mod1)
 summary(success_mod2)
+summary(success_mod3)
+summary(Span_mod)
+summary(Skew_mod)
+
 #Visualization----
 plot(ggpredict(success_mod1, 
                terms ="EGGS_UNBURIED"))+
@@ -325,28 +320,18 @@ plot(ggpredict(success_mod1,
     panel.background = element_blank(),
     panel.border = element_rect(colour = "white", fill=NA, size=1))
 
-ggplot()+
-  geom_jitter(data=ANI, aes(EGGS_UNBURIED, (HATCHED/EGGS_UNBURIED)), 
-            color="black",
-            fill="black",
-            stroke=0,
-            width=0.1, 
-            height=0.01, 
-            pch=21, 
-            size=3)
-
 plot(ggpredict(success_mod2, 
                terms ="EGGS_UNBURIED"))+
-  geom_jitter(data=ANI, aes(EGGS_UNBURIED, (HATCHED/EGGS_UNBURIED)), 
+  geom_jitter(data=ANI, aes(EGGS_UNBURIED, HpEg), 
               color="black",
               fill="black",
               stroke=0,
-              width=0, 
-              height=0, 
+              width=0.15, 
+              height=0.01, 
               pch=21, 
               size=3)+
   coord_cartesian(xlim = c(2,24))+
-  #labs(x="Clutch size", y="Fledging Success\n(fledged/hatched)", title="")+
+  labs(x="Clutch size", y="Hatching Success\n(hatched/incubated)", title="")+
   theme(
     text = element_text(family="Arial", size = 12, color="black"),
     axis.text.x = element_text(size=12, color = "black"),
@@ -360,3 +345,78 @@ plot(ggpredict(success_mod2,
     panel.background = element_blank(),
     panel.border = element_rect(colour = "white", fill=NA, size=1))
 
+plot(ggpredict(success_mod3, 
+               terms ="EGGS_UNBURIED"))+
+  geom_jitter(data=skew_new, aes(EGGS_UNBURIED, (FLEDGED.x/HATCHED.x)), 
+              color="black",
+              fill="black",
+              stroke=0,
+              width=0.15, 
+              height=0.01, 
+              pch=21, 
+              size=3)+
+  coord_cartesian(xlim = c(4,16))+
+  labs(x="Clutch size", y="Hatching Success\n(hatched/incubated)", title="")+
+  theme(
+    text = element_text(family="Arial", size = 12, color="black"),
+    axis.text.x = element_text(size=12, color = "black"),
+    axis.text.y = element_text(size=12, color="black"),
+    axis.ticks = element_line(color="black"),
+    axis.line.x = element_line(color="black"),
+    axis.line.y = element_line(color="black"),
+    axis.title=element_text(color="black"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.background = element_blank(),
+    panel.border = element_rect(colour = "white", fill=NA, size=1))
+
+
+plot(ggpredict(Span_mod, 
+               terms ="EGGS_UNBURIED"))+
+  geom_jitter(data=skew_new, aes(EGGS_UNBURIED, SPAN), 
+              color="black",
+              fill="black",
+              stroke=0,
+              width=0.15, 
+              height=0.15, 
+              pch=21, 
+              size=3)+
+  coord_cartesian(xlim = c(4,16))+
+  labs(x="Clutch size", y="Hatching Span", title="")+
+  theme(
+    text = element_text(family="Arial", size = 12, color="black"),
+    axis.text.x = element_text(size=12, color = "black"),
+    axis.text.y = element_text(size=12, color="black"),
+    axis.ticks = element_line(color="black"),
+    axis.line.x = element_line(color="black"),
+    axis.line.y = element_line(color="black"),
+    axis.title=element_text(color="black"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.background = element_blank(),
+    panel.border = element_rect(colour = "white", fill=NA, size=1))
+
+plot(ggpredict(Skew_mod, 
+               terms ="EGGS_UNBURIED"))+
+  geom_jitter(data=skew_new, aes(EGGS_UNBURIED, SKEW, fill=SITE.x), 
+              color="black",
+              fill="black",
+              stroke=0,
+              width=0.15, 
+              height=0.01, 
+              pch=21, 
+              size=3)+
+  #coord_cartesian(xlim = c(4,16))
+  labs(x="Clutch size", y="Hatching Skew", title="")+
+  theme(
+    text = element_text(family="Arial", size = 12, color="black"),
+    axis.text.x = element_text(size=12, color = "black"),
+    axis.text.y = element_text(size=12, color="black"),
+    axis.ticks = element_line(color="black"),
+    axis.line.x = element_line(color="black"),
+    axis.line.y = element_line(color="black"),
+    axis.title=element_text(color="black"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    panel.background = element_blank(),
+    panel.border = element_rect(colour = "white", fill=NA, size=1))
