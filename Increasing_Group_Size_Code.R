@@ -256,53 +256,68 @@ SKEW_DATA$FpHa<-SKEW_DATA$FLEDGED/SKEW_DATA$HATCHED
 SKEW_DATA$FEM<-floor(SKEW_DATA$ADULTS/2)
 
 ANI$GRP<-paste(ANI$YEAR, ANI$LOCATION)
+ANI$COMP<-(ANI$TOT_EGGS-ANI$EGGS_UNBURIED)/floor(ANI$ADULTS/2)
 SKEW_1<-merge(SKEW_DATA, ANI, by="GRP")
 
 SKEW_1$true_false<-ifelse(SKEW_1$HATCHED.x==SKEW_1$HATCHED.y, "true", "false")
 skew_new<-subset(SKEW_1, true_false=="true")
-
+skew_new$COMP<-((skew_new$TOT_EGGS-skew_new$EGGS_UNBURIED)/skew_new$FEM)
 #Models----
+competition_mod<-glmmTMB( EGGS_UNBURIED~ 
+                        ADULTS+as.factor(NEST_ATTMPT)+COMP+(1|SITE:LOCATION)+(1|YEAR),
+                      data = ANI, 
+                      family=poisson(link="log"))
 
-success_mod1<-glmmTMB(cbind(FLEDGED, HATCHED-FLEDGED) ~ 
-                        EGGS_UNBURIED+ADULTS+as.factor(NEST_ATTMPT)+I((TOT_EGGS-EGGS_UNBURIED)/floor(ADULTS/2))+SITE+(1|SITE:LOCATION)+(1|YEAR),
+success_mod1<-glmmTMB(cbind(HATCHED, EGGS_UNBURIED-HATCHED) ~ 
+                        EGGS_UNBURIED+ADULTS+as.factor(NEST_ATTMPT)+COMP+(1|SITE:LOCATION)+(1|YEAR),
                       data = ANI, 
                       family=binomial(link="logit"))
 
-success_mod2<-glmmTMB(cbind(HATCHED, EGGS_UNBURIED-HATCHED) ~ 
-                        EGGS_UNBURIED+ADULTS+as.factor(NEST_ATTMPT)+I((TOT_EGGS-EGGS_UNBURIED)/floor(ADULTS/2))+SITE+(1|SITE:LOCATION)+(1|YEAR),
-                      data = ANI, 
-                      family=binomial(link="logit"))
-
-success_mod3<-glmmTMB(cbind(FLEDGED.x, HATCHED.x-FLEDGED.x) ~ EGGS_UNBURIED+SPAN*SKEW+FEM+HATCHED.x+FEM:HATCHED.x+(1|LOCATION.x)+(1|YEAR.x), 
-                      data=skew_new, 
-                      family = binomial(link = "logit"))
-Span_mod<-glmmTMB(SPAN ~ EGGS_UNBURIED+FEM+as.factor(NEST_ATTMPT)+SITE.x+(1|SITE.x:LOCATION.x)+(1|YEAR.x),
+Span_mod<-glmmTMB(SPAN ~ EGGS_UNBURIED+FEM+as.factor(NEST_ATTMPT)+(1|YEAR.x),
                   data = skew_new, 
                   family = poisson(link="log"))
-Skew_mod<-glmmTMB(SKEW ~ EGGS_UNBURIED+FEM+as.factor(NEST_ATTMPT)+SITE.x+(1|SITE.x:LOCATION.x)+(1|YEAR.x),
-                  data = skew_new)
+
+success_mod2<-glmmTMB(cbind(HATCHED.x, EGGS_UNBURIED-HATCHED.x) ~ 
+                        EGGS_UNBURIED+SPAN+ADULTS.x+as.factor(NEST_ATTMPT)+COMP+(1|YEAR.x),
+                      data = skew_new, 
+                      family=binomial(link="logit"))
+
+success_mod3<-glmmTMB(cbind(FLEDGED.x, HATCHED.x-FLEDGED.x) ~ 
+                        SPAN+ADULTS.x+as.factor(NEST_ATTMPT)+COMP+(1|YEAR.x),
+                      data = skew_new, 
+                      family=binomial(link="logit"))
 
 check_model(success_mod1)
 check_model(success_mod2)
 check_model(success_mod3)
 check_model(Span_mod)
-check_model(Skew_mod)
 
 summary(success_mod1)
 summary(success_mod2)
 summary(success_mod3)
 summary(Span_mod)
-summary(Skew_mod)
 
+??is.singular
 #Visualization----
+plot(ggpredict(competition_mod, 
+               terms ="COMP"))+
+  geom_jitter(data=ANI, aes(COMP, EGGS_UNBURIED), 
+              color="black",
+              fill="black",
+              stroke=0,
+              width=0.15, 
+              height=0.02, 
+              pch=21, 
+              size=3)
+
 plot(ggpredict(success_mod1, 
                terms ="EGGS_UNBURIED"))+
   geom_jitter(data=ANI, aes(EGGS_UNBURIED, (FLEDGED/HATCHED)), 
               color="black",
               fill="black",
               stroke=0,
-              width=0, 
-              height=0, 
+              width=0.15, 
+              height=0.02, 
               pch=21, 
               size=3)+
   coord_cartesian(xlim = c(4,16))+
@@ -322,7 +337,7 @@ plot(ggpredict(success_mod1,
 
 plot(ggpredict(success_mod2, 
                terms ="EGGS_UNBURIED"))+
-  geom_jitter(data=ANI, aes(EGGS_UNBURIED, HpEg), 
+  geom_jitter(data=subset(ANI, NEST.FATE!="DP"), aes(EGGS_UNBURIED, HpEg), 
               color="black",
               fill="black",
               stroke=0,
@@ -330,7 +345,7 @@ plot(ggpredict(success_mod2,
               height=0.01, 
               pch=21, 
               size=3)+
-  coord_cartesian(xlim = c(2,24))+
+  #coord_cartesian(xlim = c(2,24))+
   labs(x="Clutch size", y="Hatching Success\n(hatched/incubated)", title="")+
   theme(
     text = element_text(family="Arial", size = 12, color="black"),
@@ -420,3 +435,12 @@ plot(ggpredict(Skew_mod,
     panel.grid.minor = element_blank(),
     panel.background = element_blank(),
     panel.border = element_rect(colour = "white", fill=NA, size=1))
+
+success_mod4<-glmmTMB(cbind(HATCHED.x, EGGS_UNBURIED-HATCHED.x) ~ 
+                        EGGS_UNBURIED+SPAN,
+                      data = skew_new, 
+                      family=binomial(link="logit"))
+summary(success_mod4)
+plot(ggpredict(success_mod4, 
+               terms="EGGS_UNBURIED"))
+anova(success_mod2, success_mod4)
