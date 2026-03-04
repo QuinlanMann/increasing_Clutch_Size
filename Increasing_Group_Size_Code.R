@@ -14,7 +14,7 @@ library(reshape2)
 library(cowplot)
 
 #data import and cleanup, ensuring that all columns are appropriate types
-ANI<-(read.csv("C:/Users/quinl/Desktop/ANI/NEST_SUMMARY_ANIS.csv")	%>% 
+ANI<-(read.csv("E:/quinl/Desktop/Grad school/ANI/NEST_SUMMARY_ANIS.csv")	%>% 
         mutate(NULL, 
                ADULTS=as.numeric(ADULTS), 
                EGGS_BURIED=as.numeric(EGGS_BURIED),
@@ -44,7 +44,7 @@ theme_set(ggthemes::theme_few())
 
 #PCA
 #bringing in the "best first date" data and morphometrics
-PCA_DAT<-read.csv("C:/Users/quinl/Desktop/ANI/PCA_DATA.csv")
+PCA_DAT<-read.csv("E:/quinl/Desktop/Grad school/ANI/PCA_DATA.csv")
 
 #PCA results, and inserting PC1 back to the main dataset
 PCA_DAT$PC1<-prcomp(PCA_DAT[11:13], scale = TRUE)[["x"]][,1]
@@ -112,7 +112,7 @@ bias_pc1<-(N*coef(lm(PCA_DAT$DATE~PCA_DAT$PC1))[2]) - (N - 1)*mean(jack.pc1)
 bias_int2<-(N*coef(lm(PCA_DAT$DATE~PCA_DAT$PC1))[1]) - (N - 1)*mean(jack.int2)
 
 #bringing in the unknown aged chicks
-UNK_DATE<-read.csv("C:/Users/quinl/Desktop/ANI/METRICS_UNK_AGE.csv")
+UNK_DATE<-read.csv("E:/quinl/Desktop/Grad school/ANI/METRICS_UNK_AGE.csv")
 names(UNK_DATE) <- toupper(names(UNK_DATE))
 UNK_DATE$TARSUS <- as.double(UNK_DATE$TARSUS)
 UNK_DATE$MASS <- as.double(UNK_DATE$MASS)
@@ -159,7 +159,7 @@ UNK_DATE$GRP <- paste(UNK_DATE$YEAR, UNK_DATE$TERRITORY)
 
 library(data.table)
 
-succ<-(read.csv("C:/Users/quinl/Desktop/ANI/SUCCESSFUL_NESTS.csv")	%>% 
+succ<-(read.csv("E:/quinl/Desktop/Grad school/ANI/SUCCESSFUL_NESTS.csv")	%>% 
          mutate(NULL, 
                 ADULTS=as.numeric(ADULTS), 
                 EGGS_BURIED=as.numeric(EGGS_BURIED),

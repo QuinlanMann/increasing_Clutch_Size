@@ -1,5 +1,5 @@
 ---
-title: "Increasing clutch size 2and success"
+title: "Increasing clutch size and success"
 subtitle: "draft results" 
 author:     | 
     | Quinlan Mann
@@ -92,14 +92,17 @@ success_mod2<-glmmTMB(cbind(FLEDGED, HATCHED-FLEDGED) ~
 ```{r}
 
 success_mod1_b<-glmmTMB(HATCHED ~ 
-                      EGGS_UNBURIED+ADULTS+as.factor(NEST_ATTMPT)+COMP+(1|SITE:LOCATION)+(1|YEAR),
+                      EGGS_UNBURIED+I(EGGS_UNBURIED^2)+ADULTS+as.factor(NEST_ATTMPT)+COMP+(1|SITE:LOCATION)+(1|YEAR),
                       data = ANI, 
                       family=poisson(link="log"))
 
 success_mod2_b<-glmmTMB(FLEDGED ~ 
-                      HATCHED+ADULTS+as.factor(NEST_ATTMPT)+COMP+(1|SITE:LOCATION)+(1|YEAR),
+                      HATCHED+I(HATCHED^2)+ADULTS+as.factor(NEST_ATTMPT)+COMP+(1|SITE:LOCATION)+(1|YEAR),
                       data = ANI, 
                       family=poisson(link="log"))
+```
+```{r}
+summary(success_mod2_b)
 ```
 
 Summary: 
