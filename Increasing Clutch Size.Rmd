@@ -76,7 +76,98 @@ ANI$COMP<-ANI$EGGS_UNBURIED/ANI$TOT_EGGS
 theme_set(ggthemes::theme_few())
 ```
 
+```{r GROUP SIZE}
+Tot_mod<-glmmTMB(TOT_EGGS ~ ADULTS+(1|SITE:LOCATION)+(1|YEAR), 
+                    data = ANI, 
+                    family=poisson(link="log"))
+
+Clutch_mod<-glmmTMB(EGGS_UNBURIED ~ ADULTS+(1|SITE:LOCATION)+(1|YEAR), 
+                    data = subset(ANI, EGGS_UNBURIED>0), 
+                    family=poisson(link="log"))
+
+Brood_mod<-glmmTMB(HATCHED ~ ADULTS, 
+                    data = subset(ANI, HATCHED>0), 
+                    family=poisson(link="log"))
+
+```
+
 ```{r}
+summary(Tot_mod)
+summary(Clutch_mod)
+summary(Brood_mod)
+```
+
+```{r}
+plot(ggpredict(Tot_mod, 
+               terms ="ADULTS"))+
+  geom_jitter(data=ANI, aes(ADULTS, TOT_EGGS), 
+              color="black",
+              fill="black",
+              stroke=0,
+              width=0.15, 
+              height=0.02, 
+              pch=21, 
+              size=3)+
+  scale_x_continuous( breaks=c(2,4,6,8,10,12,14,16))+
+  labs(x="Adults", y="Total clutch size", title="")+
+  theme(
+    axis.text = element_text(size=12, color = "black"),
+    axis.ticks = element_line(color="black"),
+    axis.line.x = element_line(color="black"),
+    axis.line.y = element_line(color="black"),
+    axis.title=element_text(color="black"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    )
+```
+
+```{r}
+plot(ggpredict(Clutch_mod, 
+               terms ="ADULTS"))+
+  geom_jitter(data=subset(ANI, EGGS_UNBURIED>0), aes(ADULTS, EGGS_UNBURIED), 
+              color="black",
+              fill="black",
+              stroke=0,
+              width=0.15, 
+              height=0.02, 
+              pch=21, 
+              size=3)+
+  labs(x="Adults", y="Incubated clutch size", title="")+
+  theme(
+    axis.text = element_text(size=12, color = "black"),
+    axis.ticks = element_line(color="black"),
+    axis.line.x = element_line(color="black"),
+    axis.line.y = element_line(color="black"),
+    axis.title=element_text(color="black"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    )
+```
+
+```{r}
+plot(ggpredict(Brood_mod, 
+               terms ="ADULTS"))+
+  geom_jitter(data=subset(ANI, HATCHED>0), aes(ADULTS, HATCHED), 
+              color="black",
+              fill="black",
+              stroke=0,
+              width=0.15, 
+              height=0.02, 
+              pch=21, 
+              size=3)+
+  labs(x="Adults", y="Brood size", title="")+
+  theme(
+    axis.text = element_text(size=12, color = "black"),
+    axis.ticks = element_line(color="black"),
+    axis.line.x = element_line(color="black"),
+    axis.line.y = element_line(color="black"),
+    axis.title=element_text(color="black"),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    )
+```
+
+```{r Proportional models}
 
 success_mod1<-glmmTMB(cbind(HATCHED, EGGS_UNBURIED-HATCHED) ~ 
                       EGGS_UNBURIED+ADULTS+as.factor(NEST_ATTMPT)+COMP+(1|SITE:LOCATION)+(1|YEAR),
@@ -89,7 +180,7 @@ success_mod2<-glmmTMB(cbind(FLEDGED, HATCHED-FLEDGED) ~
                       family=binomial(link="logit"))
 ```
 
-```{r}
+```{r Count models}
 
 success_mod1_b<-glmmTMB(HATCHED ~ 
                       EGGS_UNBURIED+I(EGGS_UNBURIED^2)+ADULTS+as.factor(NEST_ATTMPT)+COMP+(1|SITE:LOCATION)+(1|YEAR),
@@ -101,30 +192,7 @@ success_mod2_b<-glmmTMB(FLEDGED ~
                       data = ANI, 
                       family=poisson(link="log"))
 ```
-```{r}
-summary(success_mod2_b)
-```
 
-Summary: 
-
-- Model 1: 
-
-  -   There is no evidence that hatching success is impacted by clutch size
-  
-- Model 2: 
-
-  -   Fledging success is negatively impacted by brood size
-  
-
-- Span Model: 
-
-  -   There is no evidence that the clutch size impacts the hatching span
-      -   Given this I did not reanalyze the first two models with the span term included as it is not significant here, and would mean using a smaller data set (<47 individuals as opposed to 121)
-      -   The sub models including span would also not be able to be the "maximal" models as the others are, given that they have less data available data to estimate all the parameters I included previously. This would require dropping the "least important" parameters, and it may lead to further conflicts as what is the "least important" to me/us may not be the "least important" to others. I think/hope that this model is enough to stave off/reduce potential criticism of not including span.
-  -   As the proportion of the total clutch that is incubated increases, the hatching span decreases (as competition decreases so does span). This may not be the focus of the paper, but is neat and could potentially be addressed. 
-
-\newpage
- 
 #**Model 1: Hatching success as a function of clutch size**
 
 ```{r, fig.height=8}
@@ -193,8 +261,6 @@ plot(ggpredict(success_mod2,
     panel.grid.minor = element_blank(),
     )
 ```
-
-\newpage
 
 ```{r, include=F}
 #PCA
